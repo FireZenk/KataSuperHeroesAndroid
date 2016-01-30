@@ -26,7 +26,7 @@ public class SuperHeroesApplication extends Application {
   private MainComponent mainComponent;
 
   @Override public void onCreate() {
-    super.onCreate();
+    super.onCreate(); 
     mainComponent = DaggerMainComponent.create();
   }
 
