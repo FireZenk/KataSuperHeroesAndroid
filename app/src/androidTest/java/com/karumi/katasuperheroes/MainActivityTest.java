@@ -18,7 +18,6 @@ package com.karumi.katasuperheroes;
 
 import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.NoMatchingViewException;
-import android.support.test.espresso.action.ViewActions;
 import android.support.test.espresso.contrib.RecyclerViewActions;
 import android.support.test.espresso.intent.rule.IntentsTestRule;
 import android.support.test.runner.AndroidJUnit4;
@@ -28,10 +27,13 @@ import android.view.View;
 import com.karumi.katasuperheroes.di.MainComponent;
 import com.karumi.katasuperheroes.di.MainModule;
 import com.karumi.katasuperheroes.matchers.RecyclerViewItemsCountMatcher;
+import com.karumi.katasuperheroes.matchers.ToolbarMatcher;
 import com.karumi.katasuperheroes.model.SuperHero;
 import com.karumi.katasuperheroes.model.SuperHeroesRepository;
 import com.karumi.katasuperheroes.recyclerview.RecyclerViewInteraction;
 import com.karumi.katasuperheroes.ui.view.MainActivity;
+import com.karumi.katasuperheroes.ui.view.SuperHeroDetailActivity;
+
 import it.cosenonjaviste.daggermock.DaggerMockRule;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -40,16 +42,19 @@ import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Matchers;
 import org.mockito.Mock;
 
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.intent.Intents.intended;
+import static android.support.test.espresso.intent.matcher.IntentMatchers.hasComponent;
+import static android.support.test.espresso.intent.matcher.IntentMatchers.hasExtra;
 import static android.support.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
+import static com.karumi.katasuperheroes.matchers.ToolbarMatcher.onToolbarWithTitle;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -129,6 +134,32 @@ import static org.mockito.Mockito.when;
     onView(withId(R.id.recycler_view)).perform(click());
   }
 
+  @Test public void openSuperHeroDetailActivityOnRecyclerViewItemTapped() {
+    List<SuperHero> superHeroes = givenNSuperHeroes(10);
+    int superHeroIndex = 0;
+
+    startActivity();
+
+    onView(withId(R.id.recycler_view))
+            .perform(RecyclerViewActions.actionOnItemAtPosition(superHeroIndex, click()));
+
+    SuperHero superHeroSelected = superHeroes.get(superHeroIndex);
+    intended(hasComponent(SuperHeroDetailActivity.class.getCanonicalName()));
+    intended(hasExtra("super_hero_name_key", superHeroSelected.getName()));
+  }
+
+  @Test public void checkToolbarName() {
+    List<SuperHero> superHeroes = givenNSuperHeroes(10);
+    int superHeroIndex = 0;
+
+    startActivity();
+
+    onView(withId(R.id.recycler_view))
+            .perform(RecyclerViewActions.actionOnItemAtPosition(superHeroIndex, click()));
+
+    onToolbarWithTitle(superHeroes.get(0).getName()).check(matches(isDisplayed()));
+  }
+
   private void givenThereAreNoSuperHeroes() {
     when(repository.getAll()).thenReturn(Collections.<SuperHero>emptyList());
   }
@@ -141,8 +172,11 @@ import static org.mockito.Mockito.when;
 
   private LinkedList<SuperHero> givenNSuperHeroes(int n) {
     LinkedList<SuperHero> collection = new LinkedList<>();
-    for (int i = 0; i < n; i++)
-      collection.add(mock(SuperHero.class));
+    for (int i = 0; i < n; i++) {
+      SuperHero superHero = mock(SuperHero.class);
+      collection.add(superHero);
+      when(repository.getByName(superHero.getName())).thenReturn(superHero);
+    }
     when(repository.getAll()).thenReturn(collection);
     return collection;
   }
