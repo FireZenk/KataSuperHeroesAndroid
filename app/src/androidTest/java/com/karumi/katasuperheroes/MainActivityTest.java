@@ -17,25 +17,41 @@
 package com.karumi.katasuperheroes;
 
 import android.support.test.InstrumentationRegistry;
+import android.support.test.espresso.NoMatchingViewException;
+import android.support.test.espresso.action.ViewActions;
+import android.support.test.espresso.contrib.RecyclerViewActions;
 import android.support.test.espresso.intent.rule.IntentsTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.LargeTest;
+import android.view.View;
+
 import com.karumi.katasuperheroes.di.MainComponent;
 import com.karumi.katasuperheroes.di.MainModule;
+import com.karumi.katasuperheroes.matchers.RecyclerViewItemsCountMatcher;
 import com.karumi.katasuperheroes.model.SuperHero;
 import com.karumi.katasuperheroes.model.SuperHeroesRepository;
+import com.karumi.katasuperheroes.recyclerview.RecyclerViewInteraction;
 import com.karumi.katasuperheroes.ui.view.MainActivity;
 import it.cosenonjaviste.daggermock.DaggerMockRule;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Matchers;
 import org.mockito.Mock;
 
 import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
+import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @RunWith(AndroidJUnit4.class) @LargeTest public class MainActivityTest {
@@ -65,8 +81,70 @@ import static org.mockito.Mockito.when;
     onView(withText("¯\\_(ツ)_/¯")).check(matches(isDisplayed()));
   }
 
+  @Test public void notShowsEmptyCaseIfThereAreSuperHeroes() {
+    givenThereAreSuperHeroes();
+
+    startActivity();
+
+    onView(withText("¯\\_(ツ)_/¯")).check(matches(not(isDisplayed())));
+  }
+
+  @Test public void thereAreSuperHeroes() {
+    givenThereAreSuperHeroes();
+
+    startActivity();
+
+    onView(withId(R.id.recycler_view))
+            .check(matches(RecyclerViewItemsCountMatcher.recyclerViewHasItemCount(1)));
+  }
+
+  @Test public void thereAreNSuperHeroes() {
+    final int n = 10;
+    LinkedList<SuperHero> superHeros = givenNSuperHeroes(n);
+
+    startActivity();
+
+    onView(withId(R.id.recycler_view))
+            .check(matches(RecyclerViewItemsCountMatcher.recyclerViewHasItemCount(n)));
+
+    onView(withId(R.id.recycler_view))
+            .check(matches(RecyclerViewItemsCountMatcher.recyclerViewHasItemCount(n)))
+            .perform(RecyclerViewActions.scrollToPosition(n));
+
+    RecyclerViewInteraction.<SuperHero>onRecyclerView(withId(R.id.recycler_view)).withItems(superHeros).check(new RecyclerViewInteraction.ItemViewAssertion<SuperHero>() {
+      @Override
+      public void check(SuperHero item, View view, NoMatchingViewException e) {
+        matches(hasDescendant(withText(item.getName())));
+        if (item.isAvenger())
+          onView(withId(R.id.iv_avengers_badge)).check(matches(isDisplayed()));
+      }
+    });
+  }
+
+  @Test public void tapOnSuperHero() {
+    givenThereAreSuperHeroes();
+
+    startActivity();
+
+    onView(withId(R.id.recycler_view)).perform(click());
+  }
+
   private void givenThereAreNoSuperHeroes() {
     when(repository.getAll()).thenReturn(Collections.<SuperHero>emptyList());
+  }
+
+  private void givenThereAreSuperHeroes() {
+    LinkedList<SuperHero> collection = new LinkedList<>();
+    collection.add(mock(SuperHero.class));
+    when(repository.getAll()).thenReturn(collection);
+  }
+
+  private LinkedList<SuperHero> givenNSuperHeroes(int n) {
+    LinkedList<SuperHero> collection = new LinkedList<>();
+    for (int i = 0; i < n; i++)
+      collection.add(mock(SuperHero.class));
+    when(repository.getAll()).thenReturn(collection);
+    return collection;
   }
 
   private MainActivity startActivity() {
